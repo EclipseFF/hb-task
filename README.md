@@ -3,7 +3,7 @@
 Тестовое задание
 Go + Gin, PostgreSQL 18, Camunda 8,
 Keycloak 26.8, Kafka 4.4 и ClickHouse 26
-Фронт -  Next.js + React с js
+Фронт -  Next.js + React с js, AGENTS.md в нем сам некст добавляет автоматически
 
 ## Запуск
 docker compose up
