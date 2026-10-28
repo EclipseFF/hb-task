@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  id="vacation-definitions" targetNamespace="https://example.test/vacation">
+  <bpmn:process id="vacation" name="Согласование отпуска" isExecutable="true">
+    <bpmn:startEvent id="submitted" name="Заявка получена"><bpmn:outgoing>to_balance</bpmn:outgoing></bpmn:startEvent>
+    <bpmn:serviceTask id="check_balance" name="Проверить и зарезервировать дни">
+      <bpmn:extensionElements><zeebe:taskDefinition type="check-balance" retries="3"/></bpmn:extensionElements>
+      <bpmn:incoming>to_balance</bpmn:incoming><bpmn:outgoing>to_gateway</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="manager_needed" name="Нужен руководитель?" default="skip_manager">
+      <bpmn:incoming>to_gateway</bpmn:incoming><bpmn:outgoing>to_manager</bpmn:outgoing><bpmn:outgoing>skip_manager</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="manager_review" name="Согласовать отпуск">
+      <bpmn:extensionElements>
+        <zeebe:userTask/>
+        <zeebe:assignmentDefinition assignee="manager"/>
+        <zeebe:formDefinition formId="manager-review" bindingType="deployment"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>to_manager</bpmn:incoming><bpmn:outgoing>manager_to_dmn</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:businessRuleTask id="categorize" name="Определить результат (DMN)">
+      <bpmn:extensionElements><zeebe:calledDecision decisionId="vacation-result" resultVariable="result" bindingType="deployment"/></bpmn:extensionElements>
+      <bpmn:incoming>skip_manager</bpmn:incoming><bpmn:incoming>manager_to_dmn</bpmn:incoming><bpmn:outgoing>to_record</bpmn:outgoing>
+    </bpmn:businessRuleTask>
+    <bpmn:serviceTask id="record_decision" name="Сохранить решение и событие">
+      <bpmn:extensionElements><zeebe:taskDefinition type="record-decision" retries="3"/></bpmn:extensionElements>
+      <bpmn:incoming>to_record</bpmn:incoming><bpmn:outgoing>to_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="decided" name="Решение принято"><bpmn:incoming>to_end</bpmn:incoming></bpmn:endEvent>
+    <bpmn:sequenceFlow id="to_balance" sourceRef="submitted" targetRef="check_balance"/>
+    <bpmn:sequenceFlow id="to_gateway" sourceRef="check_balance" targetRef="manager_needed"/>
+    <bpmn:sequenceFlow id="to_manager" name="Да" sourceRef="manager_needed" targetRef="manager_review">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">= needsManager</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="skip_manager" name="Нет" sourceRef="manager_needed" targetRef="categorize"/>
+    <bpmn:sequenceFlow id="manager_to_dmn" sourceRef="manager_review" targetRef="categorize"/>
+    <bpmn:sequenceFlow id="to_record" sourceRef="categorize" targetRef="record_decision"/>
+    <bpmn:sequenceFlow id="to_end" sourceRef="record_decision" targetRef="decided"/>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="diagram"><bpmndi:BPMNPlane id="plane" bpmnElement="vacation">
+    <bpmndi:BPMNShape id="start_shape" bpmnElement="submitted"><dc:Bounds x="100" y="182" width="36" height="36"/><bpmndi:BPMNLabel><dc:Bounds x="75" y="225" width="90" height="30"/></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="balance_shape" bpmnElement="check_balance"><dc:Bounds x="190" y="160" width="130" height="80"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="gateway_shape" bpmnElement="manager_needed" isMarkerVisible="true"><dc:Bounds x="380" y="175" width="50" height="50"/><bpmndi:BPMNLabel><dc:Bounds x="355" y="235" width="110" height="30"/></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="manager_shape" bpmnElement="manager_review"><dc:Bounds x="490" y="50" width="130" height="80"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="dmn_shape" bpmnElement="categorize"><dc:Bounds x="690" y="160" width="130" height="80"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="record_shape" bpmnElement="record_decision"><dc:Bounds x="880" y="160" width="130" height="80"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="end_shape" bpmnElement="decided"><dc:Bounds x="1070" y="182" width="36" height="36"/><bpmndi:BPMNLabel><dc:Bounds x="1045" y="225" width="90" height="30"/></bpmndi:BPMNLabel></bpmndi:BPMNShape>
+    <bpmndi:BPMNEdge id="e1" bpmnElement="to_balance"><di:waypoint x="136" y="200"/><di:waypoint x="190" y="200"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="e2" bpmnElement="to_gateway"><di:waypoint x="320" y="200"/><di:waypoint x="380" y="200"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="e3" bpmnElement="to_manager"><di:waypoint x="405" y="175"/><di:waypoint x="405" y="90"/><di:waypoint x="490" y="90"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="e4" bpmnElement="skip_manager"><di:waypoint x="430" y="200"/><di:waypoint x="690" y="200"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="e5" bpmnElement="manager_to_dmn"><di:waypoint x="620" y="90"/><di:waypoint x="755" y="90"/><di:waypoint x="755" y="160"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="e6" bpmnElement="to_record"><di:waypoint x="820" y="200"/><di:waypoint x="880" y="200"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="e7" bpmnElement="to_end"><di:waypoint x="1010" y="200"/><di:waypoint x="1070" y="200"/></bpmndi:BPMNEdge>
+  </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</bpmn:definitions>

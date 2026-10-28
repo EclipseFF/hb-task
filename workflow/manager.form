@@ -1,0 +1,12 @@
+{
+  "id": "manager-review",
+  "type": "default",
+  "executionPlatform": "Camunda Cloud",
+  "executionPlatformVersion": "8.10.0",
+  "schemaVersion": 19,
+  "components": [
+    {"id": "details", "type": "text", "text": "## Согласование отпуска\n\nЗаявка: {{ requestId }}\n\nСотрудник: {{ employeeId }}\n\nС {{ startDate }} по {{ endDate }} — {{ days }} дней\n\nКомментарий: {{ comment }}"},
+    {"id": "decision", "type": "checkbox", "key": "managerApproved", "label": "Одобрить отпуск", "defaultValue": false},
+    {"id": "hint", "type": "text", "text": "Снимите галочку для отказа. Для отпуска больше 14 дней одобрение передаст заявку в HR."}
+  ]
+}

@@ -1,0 +1,2 @@
+CREATE DATABASE camunda8;
+CREATE DATABASE keycloak;

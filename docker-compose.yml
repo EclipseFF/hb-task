@@ -1,0 +1,125 @@
+name: hb-vacation
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: vacation
+      POSTGRES_USER: vacation
+      POSTGRES_PASSWORD: vacation
+    volumes:
+      - postgres18-data:/var/lib/postgresql
+      - ./infrastructure/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U vacation -d vacation"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  camunda:
+    image: camunda/camunda:8.10.7
+    environment:
+      JAVA_OPTS: -Xms256m -Xmx768m
+    volumes:
+      - ./infrastructure/camunda/application.yaml:/usr/local/camunda/config/application.yaml:ro
+      - camunda8-data:/usr/local/camunda/data
+    ports: ["127.0.0.1:8082:8080"]
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.0
+    command: [start-dev, --import-realm]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: vacation
+      KC_DB_PASSWORD: vacation
+      KC_HOSTNAME: http://localhost:8081
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      JAVA_OPTS_KC_HEAP: -Xms128m -Xmx512m
+    ports: ["127.0.0.1:8081:8080"]
+    volumes:
+      - ./infrastructure/keycloak:/opt/keycloak/data/import:ro
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  kafka:
+    image: apache/kafka:4.4.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    volumes:
+      - kafka44-data:/var/lib/kafka/data
+    healthcheck:
+      test: [CMD-SHELL, "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  kafka-init:
+    image: apache/kafka:4.4.0
+    entrypoint: [/opt/kafka/bin/kafka-topics.sh]
+    command: [--bootstrap-server, kafka:9092, --create, --if-not-exists, --topic, vacation.decisions, --partitions, "1", --replication-factor, "1"]
+    depends_on:
+      kafka: {condition: service_healthy}
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.10-alpine
+    environment:
+      CLICKHOUSE_DB: vacation
+      CLICKHOUSE_USER: vacation
+      CLICKHOUSE_PASSWORD: vacation
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ports: ["127.0.0.1:8123:8123"]
+    volumes:
+      - clickhouse2610-data:/var/lib/clickhouse
+      - ./infrastructure/clickhouse:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [CMD-SHELL, "wget -q -O - http://127.0.0.1:8123/ping | grep -q Ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    ulimits:
+      nofile: {soft: 262144, hard: 262144}
+
+  backend:
+    build: .
+    ports: ["127.0.0.1:8080:8080"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      camunda: {condition: service_started}
+      keycloak: {condition: service_started}
+      kafka-init: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/readyz]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 30s
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on:
+      backend: {condition: service_healthy}
+
+volumes:
+  postgres18-data:
+  camunda8-data:
+  kafka44-data:
+  clickhouse2610-data:

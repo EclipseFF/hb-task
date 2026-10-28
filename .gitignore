@@ -1,0 +1,7 @@
+.idea/
+.env
+frontend/node_modules/
+frontend/.next/
+coverage.out
+bin/
+__pycache__/

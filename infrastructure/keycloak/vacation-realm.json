@@ -1,0 +1,106 @@
+{
+  "realm": "vacation",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "roles": {
+    "realm": [
+      {
+        "name": "employee"
+      },
+      {
+        "name": "manager"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "vacation-web",
+      "name": "Vacation web",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "protocolMappers": [
+        {
+          "name": "api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "vacation-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "username": "employee",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Сотрудник1",
+      "lastName": "Сотрудник1",
+      "email": "emp1@mail.mail",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "employee",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "employee"
+      ]
+    },
+    {
+      "id": "22222222-2222-4222-8222-222222222222",
+      "username": "employee2",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Сотрудник2",
+      "lastName": "Сотрудник2",
+      "email": "emp2@mail.mail",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "employee2",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "employee"
+      ]
+    },
+    {
+      "id": "33333333-3333-4333-8333-333333333333",
+      "username": "manager",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Менеджен3",
+      "lastName": "Менеджен3",
+      "email": "emp3@mail.mail",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "manager",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "manager"
+      ]
+    }
+  ]
+}
