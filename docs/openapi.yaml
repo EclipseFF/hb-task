@@ -1,0 +1,158 @@
+openapi: 3.0.3
+info:
+  title: Vacation approval API
+  version: 1.0.0
+  description: |
+    Календарные дни включительно. JWT выдаётся Keycloak realm vacation.
+    Создание асинхронное: HTTP 202 означает сохранение заявки и outbox.
+    Для Authorize используйте access_token (без префикса Bearer) из примера в README.
+servers:
+  - url: http://localhost:8080
+security:
+  - bearerAuth: []
+paths:
+  /healthz:
+    get:
+      summary: Liveness
+      security: []
+      responses:
+        '200': {description: Процесс работает}
+  /readyz:
+    get:
+      summary: Readiness (PostgreSQL; workflow deployed during startup)
+      security: []
+      responses:
+        '200': {description: Готов принимать заявки}
+        '503': {description: PostgreSQL недоступен}
+  /api/me:
+    get:
+      summary: Сотрудник и доступный баланс с учётом резервов
+      responses:
+        '200':
+          description: Текущий сотрудник
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Employee'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '500': {$ref: '#/components/responses/InternalError'}
+  /api/vacation-requests:
+    post:
+      summary: Подать заявку (роль employee)
+      description: |
+        employee_id определяется по JWT sub через employees.keycloak_subject. Повтор с тем же ключом и телом вернёт
+        существующую заявку с HTTP 200. Другое тело с тем же ключом - HTTP 409.
+        Формат и актуальность дат проверяются и при повторном запросе.
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: {type: string, minLength: 1, maxLength: 128}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SubmitRequest'}
+      responses:
+        '202': {$ref: '#/components/responses/Request'}
+        '200': {$ref: '#/components/responses/Request'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {description: Ключ уже использован для другого тела, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '415': {description: Требуется Content-Type application/json}
+        '500': {$ref: '#/components/responses/InternalError'}
+    get:
+      summary: Мои заявки (роль employee), новые сначала
+      parameters:
+        - {$ref: '#/components/parameters/Limit'}
+        - {$ref: '#/components/parameters/Offset'}
+      responses:
+        '200': {$ref: '#/components/responses/RequestList'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '500': {$ref: '#/components/responses/InternalError'}
+  /api/manager/vacation-requests:
+    get:
+      summary: Все заявки (роль manager); решения принимаются в Camunda Tasklist
+      parameters:
+        - {$ref: '#/components/parameters/Limit'}
+        - {$ref: '#/components/parameters/Offset'}
+      responses:
+        '200': {$ref: '#/components/responses/RequestList'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '500': {$ref: '#/components/responses/InternalError'}
+components:
+  securitySchemes:
+    bearerAuth: {type: http, scheme: bearer, bearerFormat: JWT}
+  parameters:
+    Limit: {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+    Offset: {in: query, name: offset, schema: {type: integer, minimum: 0, default: 0}}
+  schemas:
+    SubmitRequest:
+      type: object
+      additionalProperties: false
+      required: [start_date, end_date]
+      properties:
+        start_date: {type: string, format: date, description: Сегодня или позже (UTC)}
+        end_date: {type: string, format: date, description: Не раньше start_date; до 365 дней включительно}
+        comment: {type: string, maxLength: 1000, default: ''}
+    Employee:
+      type: object
+      required: [id, name, balance_days]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        balance_days: {type: integer, minimum: 0}
+    VacationRequest:
+      type: object
+      required: [id, employee_id, start_date, end_date, days, comment, status, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        employee_id: {type: string, format: uuid}
+        start_date: {type: string, format: date}
+        end_date: {type: string, format: date}
+        days: {type: integer, minimum: 1, maximum: 365}
+        comment: {type: string}
+        status:
+          type: string
+          enum: [submitted, processing, pending_manager, auto_approved, approved, rejected, needs_hr_review]
+        process_instance_id: {type: string}
+        created_at: {type: string, format: date-time}
+        decided_at: {type: string, format: date-time}
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: {type: string}
+  responses:
+    Request:
+      description: Заявка
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/VacationRequest'}
+    RequestList:
+      description: Список заявок (пустой список возвращается как [])
+      content:
+        application/json:
+          schema: {type: array, items: {$ref: '#/components/schemas/VacationRequest'}}
+    BadRequest:
+      description: Ошибка валидации
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Unauthorized:
+      description: JWT отсутствует, истёк или не прошёл проверку подписи / issuer / audience
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Forbidden:
+      description: Недостаточно прав
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    NotFound:
+      description: Сотрудник не зарегистрирован
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    InternalError:
+      description: Внутренняя ошибка
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}

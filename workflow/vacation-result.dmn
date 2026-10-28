@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"
+  id="vacation-dmn" name="Vacation result" namespace="https://example.test/vacation">
+  <decision id="vacation-result" name="Категория решения">
+    <decisionTable id="result-table" hitPolicy="UNIQUE">
+      <input id="balance-input" label="Дней достаточно"><inputExpression id="balance-expr" typeRef="boolean"><text>balanceSufficient</text></inputExpression></input>
+      <input id="days-input" label="Дней отпуска"><inputExpression id="days-expr" typeRef="number"><text>days</text></inputExpression></input>
+      <input id="manager-input" label="Одобрено руководителем"><inputExpression id="manager-expr" typeRef="boolean"><text>managerApproved</text></inputExpression></input>
+      <output id="result-output" name="result" label="Результат" typeRef="string"/>
+      <rule id="insufficient"><inputEntry id="r1a"><text>false</text></inputEntry><inputEntry id="r1b"><text>-</text></inputEntry><inputEntry id="r1c"><text>-</text></inputEntry><outputEntry id="r1d"><text>"rejected"</text></outputEntry></rule>
+      <rule id="automatic"><inputEntry id="r2a"><text>true</text></inputEntry><inputEntry id="r2b"><text>&lt;= 2</text></inputEntry><inputEntry id="r2c"><text>-</text></inputEntry><outputEntry id="r2d"><text>"auto_approved"</text></outputEntry></rule>
+      <rule id="manager-rejected"><inputEntry id="r3a"><text>true</text></inputEntry><inputEntry id="r3b"><text>&gt; 2</text></inputEntry><inputEntry id="r3c"><text>false</text></inputEntry><outputEntry id="r3d"><text>"rejected"</text></outputEntry></rule>
+      <rule id="manager-approved"><inputEntry id="r4a"><text>true</text></inputEntry><inputEntry id="r4b"><text>[3..14]</text></inputEntry><inputEntry id="r4c"><text>true</text></inputEntry><outputEntry id="r4d"><text>"approved"</text></outputEntry></rule>
+      <rule id="hr-review"><inputEntry id="r5a"><text>true</text></inputEntry><inputEntry id="r5b"><text>&gt; 14</text></inputEntry><inputEntry id="r5c"><text>true</text></inputEntry><outputEntry id="r5d"><text>"needs_hr_review"</text></outputEntry></rule>
+    </decisionTable>
+  </decision>
+</definitions>

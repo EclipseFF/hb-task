@@ -1,0 +1,23 @@
+camunda:
+  process-instance-creation:
+    business-id-uniqueness-enabled: true
+  data:
+    secondary-storage:
+      type: rdbms
+      rdbms:
+        url: jdbc:postgresql://postgres:5432/camunda8
+        username: vacation
+        password: vacation
+  security:
+    authentication:
+      method: basic
+      unprotected-api: false
+    initialization:
+      users:
+        - username: manager
+          password: manager
+          name: Manager
+          email: manager@example.test
+      default-roles:
+        admin:
+          users: [manager]

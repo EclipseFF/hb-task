@@ -1,0 +1,5 @@
+body { font-family: sans-serif; margin: 24px; }
+label { display: block; margin: 8px 0; }
+textarea { vertical-align: top; }
+table { border-collapse: collapse; }
+th, td { border: 1px solid #aaa; padding: 6px; text-align: left; }
